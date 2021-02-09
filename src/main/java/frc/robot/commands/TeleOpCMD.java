@@ -1,13 +1,13 @@
 package frc.robot.commands;
 
-import edu.wpi.first.wpilibj.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandBase;
 
 // import frc.robot.Robot;
 
-public class TeleOpCMD extends Command {
-  private Command TankDriveCMD = null;
+public class TeleOpCMD extends CommandBase {
+  private CommandBase TankDriveCMD = null;
 
-  protected Command getTankDriveCMD() {
+  protected CommandBase getTankDriveCMD() {
     if (TankDriveCMD == null) {
       TankDriveCMD = new DriveTrainCMDS.TankDrive();
     }
@@ -15,22 +15,22 @@ public class TeleOpCMD extends Command {
   }
 
   @Override
-  protected void execute() {
+  public void execute() {
     System.out.println("teleop1");
     // double left = -Robot.oi.stick.getY();
     // double right = -Robot.oi.stick.getThrottle();
-    Command driveTrainCMD = getTankDriveCMD();
-    driveTrainCMD.start();
+    CommandBase driveTrainCMD = getTankDriveCMD();
+    driveTrainCMD.schedule();
     System.out.println("teleop");
   }
 
   @Override
-  protected boolean isFinished() {
+  public boolean isFinished() {
     return false;
   }
 
   @Override
-  protected void end() {
-    TankDriveCMD.close();
+  public void end(boolean interrupted) {
+    TankDriveCMD.cancel();
   }
 }

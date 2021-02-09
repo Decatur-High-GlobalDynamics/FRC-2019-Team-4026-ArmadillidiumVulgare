@@ -7,26 +7,34 @@
 
 package frc.robot;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+
 import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.wpilibj.BuiltInAccelerometer;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.PowerDistributionPanel;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.command.Command;
-import edu.wpi.first.wpilibj.command.Scheduler;
+import edu.wpi.first.wpilibj.controller.PIDController;
+import edu.wpi.first.wpilibj.controller.RamseteController;
+import edu.wpi.first.wpilibj.controller.SimpleMotorFeedforward;
+import edu.wpi.first.wpilibj2.command.CommandBase;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj.interfaces.Accelerometer.Range;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.commands.CenterAuto;
+import edu.wpi.first.wpilibj.trajectory.Trajectory;
+import edu.wpi.first.wpilibj.trajectory.TrajectoryUtil;
 import frc.robot.commands.DriveTrainCMDS;
-import frc.robot.commands.DriveTrainCMDS.DriveToHatchCMD;
-import frc.robot.commands.ExampleCommand;
-import frc.robot.commands.HatchGrabberCMDS;
-import frc.robot.subsystems.DriveTrain;
+import frc.robot.commands.GTADriveCmd;
 import frc.robot.subsystems.DriveTrainSubsystem2019;
-import frc.robot.subsystems.DriveTrainSubsystemPractice;
-import frc.robot.subsystems.FlipperSubsystem;
-import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.VisionSystem;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.RamseteCommand;
+import edu.wpi.first.wpilibj2.command.button.Button;
+import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 
 // import frc.robot.subsystems.GyroSubsystem;
 
@@ -40,20 +48,20 @@ public class Robot extends TimedRobot {
 
   //public static DriveTrainSubsystemPractice driveTrainSubsystem = new DriveTrainSubsystemPractice();
   // DriveTrainSubsystemPractice();
-  public static IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
+  //public static IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
   // public static DriveTrainSubsystem2018 driveTrainSubsystem = new DriveTrainSubsystem2018();
-  public static DriveTrainSubsystem2019 driveTrainSubsystem = new DriveTrainSubsystem2019();
+  public static DriveTrainSubsystem2019 driveTrainSubsystem = new DriveTrainSubsystem2019(false);
 
   // public static DriveTrainSubsystem2018 driveTrainSubsystem = new DriveTrainSubsystem2018();
 
   public static VisionSystem visionSystem = new VisionSystem();
   public static PowerDistributionPanel PDP = new PowerDistributionPanel(0);
-  public static FlipperSubsystem flipperSubsystem = new FlipperSubsystem();
+  //public static FlipperSubsystem flipperSubsystem = new FlipperSubsystem();
   public static BuiltInAccelerometer Accelerometer = new BuiltInAccelerometer(Range.k8G);
 
   public static OI oi;
 
-  Command m_autonomousCommand;
+  CommandBase m_autonomousCommand;
   SendableChooser<Command> m_chooser = new SendableChooser<>();
 
 
@@ -65,23 +73,10 @@ public class Robot extends TimedRobot {
   public void robotInit() {
 
     oi = new OI();
-    oi.stick2Button2.whileHeld(new HatchGrabberCMDS.StowCMD());
-    oi.stick2Button3.whileHeld(new HatchGrabberCMDS.GoUpCMD());
-    oi.stick1Button8.whileHeld(new DriveTrainCMDS.DriveStraight());
 
     //oi.stick2Button5.whileHeld(new HatchGrabberCMDS.AutoPlaceHatch());
-    oi.stick2Button8.whileHeld(new HatchGrabberCMDS.ReleaseHatch());
-    oi.stick2Button6.whileHeld(new HatchGrabberCMDS.AutoGrabHatch());
 
-    oi.stick2Button7.whileHeld(new HatchGrabberCMDS.ManualGrabCMD());
-
-    oi.stick1Button6.whileHeld(new DriveTrainCMDS.DriveToHatchCMD(DriveToHatchCMD.RIGHT));
-    oi.stick1Button5.whileHeld(new DriveTrainCMDS.DriveToHatchCMD(DriveToHatchCMD.LEFT));
-    oi.stick2Button9.whileHeld(new DriveTrainCMDS.RetractCamera());
-    oi.stick2Button10.whileHeld(new DriveTrainCMDS.ExtendCamera());
-
-    m_chooser.setDefaultOption("Default Auto", new CenterAuto());
-    m_chooser.setDefaultOption("Left Far Auto", new ExampleCommand());
+    m_chooser.setDefaultOption("Default Auto", getTrajCommandFromJSON("TestPathOne.wpilib.json"));
     // chooser.addOption("My Auto", new MyAutoCommand());
     // robotChooser.setDefaultOption("Main Bot", new DriveTrainSubsystem2019());
     // robotChooser.addOption("Pratice Bot", new DriveTrainSubsystemPractice());
@@ -112,7 +107,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void disabledPeriodic() {
-    Scheduler.getInstance().run();
+    CommandScheduler.getInstance().run();
   }
 
   /**
@@ -127,7 +122,9 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    teleopInit();
+    boolean test = m_chooser.getSelected() == null;
+    //m_chooser.getSelected().schedule();
+    //teleopInit();
     /*
      * String autoSelected = SmartDashboard.getString("Auto Selector",
      * "Default"); switch(autoSelected) { case "My Auto": autonomousCommand
@@ -148,7 +145,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
-    flipperSubsystem.initEnable();
     // This makes sure that the autonomous stops running when
     // teleop starts running. If you want the autonomous to
     // continue until interrupted by another command, remove
@@ -156,15 +152,47 @@ public class Robot extends TimedRobot {
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
     }
+    Button rightTrigger = new JoystickButton(OI.stick, 8);
+    Button leftTrigger = new JoystickButton(OI.stick, 7);
+    Button leftBumper = new JoystickButton(OI.stick, 5);
+    Button rightBumper = new JoystickButton(OI.stick, 6);
+    driveTrainSubsystem.setDefaultCommand(new GTADriveCmd(driveTrainSubsystem, () -> OI.stick.getX(), () -> OI.stick.getThrottle(), () -> rightTrigger.get(), () -> leftTrigger.get()));
+    rightBumper.whileHeld(new DriveTrainCMDS.ToggleBrakeCommand(driveTrainSubsystem));
+    leftBumper.whileHeld(new DriveTrainCMDS.DisableRampingCommand(driveTrainSubsystem));
   }
 
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    Scheduler.getInstance().run();
+    CommandScheduler.getInstance().run();
   }
 
   /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {}
+
+  public Command getTrajCommandFromJSON(String trajectoryJSON) {
+    Trajectory traj = new Trajectory();
+    try {
+      Path dir = Filesystem.getDeployDirectory().toPath();
+      Path trajPath = Filesystem.getDeployDirectory().toPath().resolve("paths/output/" + trajectoryJSON);
+      traj = TrajectoryUtil.fromPathweaverJson(trajPath);
+    } catch (IOException ex) {
+      DriverStation.reportError("Unable to open trajectory: " + trajectoryJSON, ex.getStackTrace());
+      return null;
+    }
+
+    return new RamseteCommand(
+      traj, 
+      driveTrainSubsystem::getPose, 
+      new RamseteController(Constants.kRamseteB, Constants.kRamseteZeta), 
+      new SimpleMotorFeedforward(Constants.ksVolts, Constants.kvVoltSecondsPerMeter, Constants.kaVoltSecondsSquaredPerMeter),
+      Constants.kDriveKinematics, 
+      driveTrainSubsystem::getWheelSpeeds, 
+      new PIDController(Constants.kPDriveVel, 0, 0), 
+      new PIDController(Constants.kPDriveVel, 0, 0),
+      driveTrainSubsystem::tankDriveVolts,
+      driveTrainSubsystem
+    );
+  }
 }

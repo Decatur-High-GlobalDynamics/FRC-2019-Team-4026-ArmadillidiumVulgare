@@ -1,9 +1,9 @@
   package frc.robot.subsystems;
 
 import com.kauailabs.navx.frc.AHRS;
-import edu.wpi.first.wpilibj.command.Subsystem;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
-public abstract class DriveTrain extends Subsystem {
+public abstract class DriveTrain extends SubsystemBase {
   public abstract void leftPower(double requestedPower);
 
   public abstract void rightPower(double requestedPower);

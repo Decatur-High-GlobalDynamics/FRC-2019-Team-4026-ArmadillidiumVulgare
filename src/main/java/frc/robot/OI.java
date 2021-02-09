@@ -8,8 +8,8 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.buttons.*;
-import edu.wpi.first.wpilibj.buttons.JoystickButton;
+import edu.wpi.first.wpilibj2.command.button.*;
+import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 
 // import frc.robot.commands.*;
 
@@ -23,23 +23,23 @@ public class OI {
   //// joystick.
   // You create one by telling it which joystick it's on and which button
   // number it is.
-  public Joystick stick = new Joystick(0);
-  public Joystick stick2 = new Joystick(1);
-  public Button stick1Button2 = new JoystickButton(stick, 2);
-  public Button stick2Button4 = new JoystickButton(stick2, 4);
-  public Button stick1Button8 = new JoystickButton(stick, 8);
-  public Button stick2Button1 = new JoystickButton(stick2, 1);
-  public Button stick2Button2 = new JoystickButton(stick2, 2);
-  public Button stick2Button7 = new JoystickButton(stick2, 7);
-  public Button stick2Button8 = new JoystickButton(stick2, 8);
-  public Button stick2Button3 = new JoystickButton(stick2, 3);
-  public Button stick2Button9 = new JoystickButton(stick2, 9);
-  public Button stick1Button6 = new JoystickButton(stick, 6);
+  public static Joystick stick = new Joystick(0);
+  public static Joystick stick2 = new Joystick(1);
+  public static Button stick1Button2 = new JoystickButton(stick, 2);
+  public static Button stick2Button4 = new JoystickButton(stick2, 4);
+  public static Button stick1Button8 = new JoystickButton(stick, 8);
+  public static Button stick2Button1 = new JoystickButton(stick2, 1);
+  public static Button stick2Button2 = new JoystickButton(stick2, 2);
+  public static Button stick2Button7 = new JoystickButton(stick2, 7);
+  public static Button stick2Button8 = new JoystickButton(stick2, 8);
+  public static Button stick2Button3 = new JoystickButton(stick2, 3);
+  public static Button stick2Button9 = new JoystickButton(stick2, 9);
+  public static Button stick1Button6 = new JoystickButton(stick, 6);
 
-  public Button stick1Button5 = new JoystickButton(stick, 5);
-  public Button stick2Button10 = new JoystickButton(stick2, 10);
-  public Button stick2Button6 = new JoystickButton(stick2, 6);
-  public Button stick2Button5 = new JoystickButton(stick2, 5);
+  public static Button stick1Button5 = new JoystickButton(stick, 5);
+  public static Button stick2Button10 = new JoystickButton(stick2, 10);
+  public static Button stick2Button6 = new JoystickButton(stick2, 6);
+  public static Button stick2Button5 = new JoystickButton(stick2, 5);
 
 
   // There are a few additional built in buttons you can use. Additionally,

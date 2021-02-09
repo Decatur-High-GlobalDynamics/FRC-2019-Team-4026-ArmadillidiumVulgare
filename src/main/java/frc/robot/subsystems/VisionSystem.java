@@ -13,13 +13,13 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
-import edu.wpi.first.wpilibj.command.Subsystem;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.HatchLocation;
 import frc.robot.Portmap;
 
 /** Add your docs here. */
-public class VisionSystem extends Subsystem {
+public class VisionSystem extends SubsystemBase {
   // Put methods for controlling this subsystem
   // here. Call these from Commands.
   public DoubleSolenoid cameraPiston = new DoubleSolenoid(Portmap.CAMERA_OUT, Portmap.CAMERA_IN);

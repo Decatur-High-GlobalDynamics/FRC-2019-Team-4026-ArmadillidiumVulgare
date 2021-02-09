@@ -7,10 +7,17 @@ import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.Sendable;
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.geometry.Pose2d;
+import edu.wpi.first.wpilibj.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.kinematics.DifferentialDriveOdometry;
+import edu.wpi.first.wpilibj.kinematics.DifferentialDriveWheelSpeeds;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpiutil.math.MathUtil;
 import frc.robot.Portmap;
 import frc.robot.Robot;
 import frc.robot.commands.DriveTrainCMDS;
+import frc.robot.Constants;
 
 public class DriveTrainSubsystem2019 extends DriveTrain {
   public final double TICKS_PER_INCH = 13 + (1/3);
@@ -18,13 +25,24 @@ public class DriveTrainSubsystem2019 extends DriveTrain {
   final WPI_TalonSRX leftDriveMotorTalon;
   final BaseMotorController rightDriveMotorVictor;
   final BaseMotorController leftDriveMotorVictor;
+  final DifferentialDrive drive;
 
   Encoder rightEncoder;
   Encoder leftEncoder;
 
-  static final double MAXPOWERCHANGE = .16 ;
+  static double MAXPOWERCHANGE = .16 ;
 
   public AnalogGyro navx;
+
+  private final DifferentialDriveOdometry odometry;
+
+  private boolean brakeMode = true;
+
+  // These three are brought over from differential drive in order to bring over it's curvature
+  // drive code
+  private double m_quickStopAccumulator;
+  private double m_quickStopThreshold;
+  private double m_quickStopAlpha;
 
   @Override
   protected void initDefaultCommand() {
@@ -64,13 +82,22 @@ public class DriveTrainSubsystem2019 extends DriveTrain {
     rightDriveMotorVictor.follow(rightDriveMotorTalon);
     leftDriveMotorVictor.follow(leftDriveMotorTalon);
 
+    leftEncoder.setDistancePerPulse(Constants.distancePerPulse);
+    rightEncoder.setDistancePerPulse(Constants.distancePerPulse);
+
     navx.calibrate();
     resetEncoders();
+
+    drive = new DifferentialDrive(leftDriveMotorTalon, rightDriveMotorTalon);
+
+    odometry = new DifferentialDriveOdometry(getAngleRot2d());
   }
 
   @Override
   public void periodic() {
     updateSmartDashboard();
+
+    odometry.update(getAngleRot2d(), leftEncoder.getDistance(), rightEncoder.getDistance());
   }
 
   public void leftPower(double requestedPower) {
@@ -175,4 +202,110 @@ public class DriveTrainSubsystem2019 extends DriveTrain {
     rightEncoder.reset();
     leftEncoder.reset();
   }
+
+  public DifferentialDriveWheelSpeeds getWheelSpeeds() {
+    return new DifferentialDriveWheelSpeeds(leftEncoder.getRate(), rightEncoder.getRate());
+  }
+
+  public Rotation2d getAngleRot2d() {
+    return navx.getRotation2d();
+  } 
+
+  public Pose2d getPose() {
+    return odometry.getPoseMeters();
+  }
+
+  public void tankDriveVolts(double leftVolts, double rightVolts) {
+    leftDriveMotorTalon.setVoltage(leftVolts);
+    rightDriveMotorTalon.setVoltage(-rightVolts);
+    drive.feed();
+  }
+
+// This is literally just the curvature drive mode from differntial drive - the differnce is that
+  // it feeds it to our management system for motor power instead, which means ramping
+  // and max power change apply
+  public void curveDrive(double speed, double rotation, boolean turnInPlace) {
+    speed = MathUtil.clamp(speed, -1.0, 1.0);
+
+    rotation = MathUtil.clamp(rotation, -1.0, 1.0);
+
+    double angularPower;
+    boolean overPower;
+
+    if (turnInPlace) {
+      if (Math.abs(speed) < m_quickStopThreshold) {
+        m_quickStopAccumulator =
+            (1 - m_quickStopAlpha) * m_quickStopAccumulator
+                + m_quickStopAlpha * MathUtil.clamp(rotation, -1.0, 1.0) * 2;
+      }
+      overPower = true;
+      angularPower = rotation;
+    } else {
+      overPower = false;
+      angularPower = Math.abs(speed) * rotation - m_quickStopAccumulator;
+
+      if (m_quickStopAccumulator > 1) {
+        m_quickStopAccumulator -= 1;
+      } else if (m_quickStopAccumulator < -1) {
+        m_quickStopAccumulator += 1;
+      } else {
+        m_quickStopAccumulator = 0.0;
+      }
+    }
+
+    double leftMotorOutput = speed + angularPower;
+    double rightMotorOutput = speed - angularPower;
+
+    // If rotation is overpowered, reduce both outputs to within acceptable range
+    if (overPower) {
+      if (leftMotorOutput > 1.0) {
+        rightMotorOutput -= leftMotorOutput - 1.0;
+        leftMotorOutput = 1.0;
+      } else if (rightMotorOutput > 1.0) {
+        leftMotorOutput -= rightMotorOutput - 1.0;
+        rightMotorOutput = 1.0;
+      } else if (leftMotorOutput < -1.0) {
+        rightMotorOutput -= leftMotorOutput + 1.0;
+        leftMotorOutput = -1.0;
+      } else if (rightMotorOutput < -1.0) {
+        leftMotorOutput -= rightMotorOutput + 1.0;
+        rightMotorOutput = -1.0;
+      }
+    }
+
+    // Normalize the wheel speeds
+    double maxMagnitude = Math.max(Math.abs(leftMotorOutput), Math.abs(rightMotorOutput));
+    if (maxMagnitude > 1.0) {
+      leftMotorOutput /= maxMagnitude;
+      rightMotorOutput /= maxMagnitude;
+    }
+
+    leftPower(leftMotorOutput);
+    rightPower(rightMotorOutput);
+  }
+
+  public void toggleBrakemode() {
+    if (brakeMode) {
+      leftDriveMotorTalon.setNeutralMode(NeutralMode.Coast);
+      leftDriveMotorVictor.setNeutralMode(NeutralMode.Coast);
+      rightDriveMotorTalon.setNeutralMode(NeutralMode.Coast);
+      rightDriveMotorVictor.setNeutralMode(NeutralMode.Coast);
+    }
+    if (!brakeMode) {
+      leftDriveMotorTalon.setNeutralMode(NeutralMode.Brake);
+      leftDriveMotorVictor.setNeutralMode(NeutralMode.Brake);
+      rightDriveMotorTalon.setNeutralMode(NeutralMode.Brake);
+      rightDriveMotorVictor.setNeutralMode(NeutralMode.Brake);
+    }
+    brakeMode = !brakeMode;
+  }
+
+  public void enableRamping() {
+    MAXPOWERCHANGE = 0.16;
+  }
+
+  public void disableRamping() {
+    MAXPOWERCHANGE = 2;
+  }
+
 }
